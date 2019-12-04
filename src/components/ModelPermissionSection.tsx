@@ -1,196 +1,245 @@
-import React from "react"
-import { IPermission, IModelSet, IRole, } from "@looker/sdk"
-import { Flex, Box, Heading, Text, Paragraph, List, ListItem } from '@looker/components'
-import Select from 'react-select';
-import { ExtensionContext } from "../framework/ExtensionWrapper"
-import { getModelPermissions, getAllAccessibleModelPermissions, getUniquePermissions, distinct } from '../util/permissions'
+import React from "react";
+import { IPermission, IModelSet, IRole } from "@looker/sdk";
+import {
+  Flex,
+  Box,
+  Heading,
+  Text,
+  Paragraph,
+  List,
+  ListItem
+} from "@looker/components";
+import Select from "react-select";
+import { ExtensionContext } from "../framework/ExtensionWrapper";
+import {
+  getModelPermissions,
+  getAllAccessibleModelPermissions,
+  getUniquePermissions,
+  distinct
+} from "../util/permissions";
 
 interface ModelPermissionProps {
-  roles?: IRole[]
+  roles?: IRole[];
 }
 
 interface ModelPermissionState {
-  accessibleModelPerms: string[]
-  modelData: Map<string, string[]>
-  selectedModel: Record<string, string> | null
-  modelsArray: string[]
+  accessibleModelPerms: Record<string, string>[];
+  modelData: Map<string, string[]>;
+  selectedModel: Record<string, string> | null;
+  modelsArray: string[];
 }
 
-class  ModelPermissionSection extends React.Component<ModelPermissionProps, ModelPermissionState> {
+class ModelPermissionSection extends React.Component<
+  ModelPermissionProps,
+  ModelPermissionState
+> {
   constructor(props: ModelPermissionProps) {
-    super(props)
+    super(props);
     this.state = {
-      accessibleModelPerms: [], 
+      accessibleModelPerms: [],
       modelData: new Map(),
       modelsArray: [],
-      selectedModel: null,
-    }
+      selectedModel: null
+    };
   }
 
   componentDidMount() {
-    const accessibleModelPerms = this.getAllAccessibleModelPermissions()
-    const modelPermissions = this.getModelSpecificPermissions()
-    const modelArray = this.getModelArray(modelPermissions)
+    const accessibleModelPerms = this.getAllAccessibleModelPermissions();
+    const modelPermissions = this.getModelSpecificPermissions();
+    const modelArray = this.getModelArray(modelPermissions);
     this.setState({
       accessibleModelPerms: accessibleModelPerms,
-      modelData: modelPermissions, 
+      modelData: modelPermissions,
       modelsArray: modelArray
-    })
+    });
   }
 
-  componentDidUpdate( prevProps: ModelPermissionProps, prevState: ModelPermissionState) {
-    if ( prevProps.roles !== this.props.roles ) {
-      const accessibleModelPerms = this.getAllAccessibleModelPermissions()
-      const modelPermissions = this.getModelSpecificPermissions()
-      const modelArray = this.getModelArray(modelPermissions)
+  componentDidUpdate(
+    prevProps: ModelPermissionProps,
+    prevState: ModelPermissionState
+  ) {
+    if (prevProps.roles !== this.props.roles) {
+      const accessibleModelPerms = this.getAllAccessibleModelPermissions();
+      const modelPermissions = this.getModelSpecificPermissions();
+      const modelArray = this.getModelArray(modelPermissions);
       this.setState({
         accessibleModelPerms: accessibleModelPerms,
-        modelData: modelPermissions, 
+        modelData: modelPermissions,
         modelsArray: modelArray
-      })
+      });
     }
   }
 
   getAllAccessibleModelPermissions() {
-    const { roles } = this.props 
-    const { accessibleModelPerms } = this.state
-    let newPermissions = accessibleModelPerms
-    if ( roles ) {
-      for ( let role of roles ) {
-        let perms = this.getAccessibleModelPermissionsForRole(role)
-        const diffPerms = getUniquePermissions(perms, newPermissions)
-        newPermissions = newPermissions.concat(diffPerms)
+    const { roles } = this.props;
+    const { accessibleModelPerms } = this.state;
+    let newPermissions = accessibleModelPerms;
+    if (roles) {
+      for (let role of roles) {
+        let perms = this.getAccessibleModelPermissionsForRole(role);
+        newPermissions = perms.concat(newPermissions).filter(distinct);
       }
     }
-    return newPermissions
+    return newPermissions;
   }
 
   getAccessibleModelPermissionsForRole(role: IRole) {
-    let permissions: string[] = []
+    let permissions: Record<string, string>[] = [];
     if (role.permission_set && role.permission_set.permissions) {
-      permissions = getAllAccessibleModelPermissions(role.permission_set.permissions)
-    } 
-    return permissions
+      permissions = getAllAccessibleModelPermissions(
+        role.permission_set.permissions
+      );
+    }
+    return permissions;
   }
 
   getModelSpecificPermissions() {
-    const { roles } = this.props
-    let map = new Map()
-    for ( let role of roles! ) {
-      let modelSet = role.model_set
-      let permissionSet = role.permission_set
-      let models = modelSet && modelSet.models
-      let permissions = permissionSet && permissionSet.permissions
-      let modelPermissions = permissions && getModelPermissions(permissions)
-      if ( models ) {
-        for ( let model of models ) {
+    const { roles } = this.props;
+    let map = new Map();
+    for (let role of roles!) {
+      let modelSet = role.model_set;
+      let permissionSet = role.permission_set;
+      let models = modelSet && modelSet.models;
+      let permissions = permissionSet && permissionSet.permissions;
+      let modelPermissions = permissions && getModelPermissions(permissions);
+      if (models) {
+        for (let model of models) {
           if (map.has(model)) {
-            let perms = map.get(model)
-            const uniqPerms = modelPermissions && perms.concat(modelPermissions).filter(distinct)
-            map.set(model, uniqPerms)
+            let perms = map.get(model);
+            const uniqPerms =
+              modelPermissions &&
+              perms.concat(modelPermissions).filter(distinct);
+            map.set(model, uniqPerms);
           } else {
-            map.set(model, modelPermissions)
+            map.set(model, modelPermissions);
           }
         }
       }
     }
-    return map
+    return map;
   }
 
-  renderModelItem( model: string ) {
-    return(
+  renderModelItem(model: string) {
+    return (
       <ListItem key={model}>
-        <Paragraph fontSize='small'>{model}</Paragraph>
+        <Paragraph fontSize="small">{model}</Paragraph>
       </ListItem>
-    )
+    );
   }
 
   getModelArray(modelData: Map<string, string[]>) {
-    const models = modelData.keys()
-    let modelArray = []
-    let x = models.next().value
-    while ( x ) {
-      modelArray.push(x)
-      x = models.next().value
+    const models = modelData.keys();
+    let modelArray = [];
+    let x = models.next().value;
+    while (x) {
+      modelArray.push(x);
+      x = models.next().value;
     }
-    return modelArray
+    return modelArray;
   }
 
   renderModelsList() {
-    const { modelsArray } = this.state
+    const { modelsArray } = this.state;
     return (
-      <List  overflowY='scroll'>
-        {
-          modelsArray.map(model => this.renderModelItem(model))
-        }
+      <List overflowY="scroll">
+        {modelsArray.map(model => this.renderModelItem(model))}
       </List>
-    )
+    );
   }
 
   handleDropDownChange(selectedOption: any) {
     this.setState({
       selectedModel: selectedOption
-    })
+    });
   }
 
   createModelOptions() {
-    const { modelsArray } = this.state
-    let options = new Array(modelsArray.length)
-    for ( let i in modelsArray ) {
-      options[i] = { value: modelsArray[i], label: modelsArray[i]}
+    const { modelsArray } = this.state;
+    let options = new Array(modelsArray.length);
+    for (let i in modelsArray) {
+      options[i] = { value: modelsArray[i], label: modelsArray[i] };
     }
-    return options
+    return options;
   }
 
   modelDropDownStyles() {
     return {
       option: (provided: any, state: any) => ({
         ...provided,
-        borderBottom: '1px dotted pink',
-        fontSize: '12px',
-        display: 'flex',
-        flex: '0 1 auto' 
+        borderBottom: "1px dotted pink",
+        fontSize: "12px",
+        display: "flex",
+        flex: "0 1 auto"
       })
-    }
+    };
   }
 
   modelDropDown() {
-    const { selectedModel } = this.state
-    const modelOptions = this.createModelOptions()
+    const { selectedModel } = this.state;
+    const modelOptions = this.createModelOptions();
     return (
       <Select
         styles={this.modelDropDownStyles()}
         value={selectedModel}
-        onChange={(selectedModel: any) => this.handleDropDownChange(selectedModel)}
-        options={modelOptions} 
+        onChange={(selectedModel: any) =>
+          this.handleDropDownChange(selectedModel)
+        }
+        options={modelOptions}
         placeholder="Model Name"
       />
-    )
+    );
   }
 
+  eachCategories = (list: any) =>
+    list.map((permission: any, index: any) => (
+      <Paragraph key={index} fontSize="small">
+        {permission}
+      </Paragraph>
+    ));
+
+  instancePermissionsList = (instancePermissions: any) => {
+    const finalList: any = {};
+    instancePermissions.map((permission: Record<string, string>) => {
+      if (finalList[permission.category]) {
+        finalList[permission.category].push(permission.value);
+      } else {
+        finalList[permission.category] = [permission.value];
+      }
+    });
+    let arr = [];
+
+    for (const category in finalList) {
+      arr.push(
+        <div key={category}>
+          <Paragraph fontWeight="bold" fontSize="medium">
+            {category}
+          </Paragraph>
+          {this.eachCategories(finalList[category])}
+        </div>
+      );
+    }
+    return arr;
+  };
+
   renderModelPermissions() {
-    const { selectedModel } = this.state 
-    const modelPermissions = selectedModel && this.state.modelData.get(selectedModel.value)
-    return (
-      modelPermissions ? 
-      modelPermissions.map((perm: string, ind: string | number | undefined) => {
-        return <Paragraph key={ind} fontSize='small'>{perm}</Paragraph>
-        }) : ''
-    )
+    const { selectedModel } = this.state;
+    const modelPermissions =
+      selectedModel && this.state.modelData.get(selectedModel.value);
+    return modelPermissions
+      ? this.instancePermissionsList(modelPermissions)
+      : "";
   }
 
   render() {
     return (
-      <Flex flexDirection='column'>
-        <Paragraph fontSize='medium' mb='large' color='palette.charcoal600'>Model-Specific Permissions</Paragraph>
-        <Box mb='large'>
-          {this.modelDropDown()}
-        </Box>
-        <Box>
-          {this.renderModelPermissions()}
-        </Box>
-      </Flex> 
-    )
+      <Flex flexDirection="column">
+        <Paragraph fontSize="medium" mb="large" color="palette.charcoal600">
+          Model Permissions
+        </Paragraph>
+        <Box mb="large">{this.modelDropDown()}</Box>
+        <Box>{this.renderModelPermissions()}</Box>
+      </Flex>
+    );
   }
 }
 
